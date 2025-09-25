@@ -4,12 +4,15 @@
 #include <string>
 #include <stack>
 #include <list>
+#include <unistd.h>
 
 class Allocation
 {
 public:
     size_t size;
     void *space;
+
+    Allocation(size_t s, void *p) : size(s), space(p) {}
 };
 std::stack<void *> allocStack;
 std::list<Allocation *> allocatedList;
@@ -46,6 +49,9 @@ void *alloc(std::size_t chunkSize)
 
     else
     {
+        Allocation *a = new Allocation(chunkSize, sbrk(chunkSize));
+        allocatedList.push_back(a);
+        return a;
     }
 }
 void dealloc(void *chunk)
