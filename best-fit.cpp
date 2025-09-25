@@ -3,6 +3,7 @@
 #include <sstream>
 #include <string>
 #include <stack>
+#include <list>
 
 class Allocation
 {
@@ -11,12 +12,41 @@ public:
     void *space;
 };
 std::stack<void *> allocStack;
-Allocation *allocated_head = nullptr;
-Allocation *free_head = nullptr;
+std::list<Allocation *> allocatedList;
+std::list<Allocation *> freeList;
 
-void *alloc(std::size_t chunk_size)
+void *alloc(std::size_t chunkSize)
 {
-    std::cout << "alloc" << " " << chunk_size << std::endl;
+    std::cout << "alloc" << " " << chunkSize << std::endl;
+    Allocation *bestFit = nullptr;
+
+    for (Allocation *a : freeList)
+    {
+        if (a->size == chunkSize)
+        {
+            freeList.remove(a);
+            allocatedList.push_back(a);
+            return a;
+        }
+        if (a->size > chunkSize)
+        {
+            if (bestFit == nullptr || bestFit->size > a->size)
+            {
+                bestFit = a;
+            }
+        }
+    }
+
+    if (bestFit)
+    {
+        freeList.remove(bestFit);
+        allocatedList.push_back(bestFit);
+        return bestFit;
+    }
+
+    else
+    {
+    }
 }
 void dealloc(void *chunk)
 {
