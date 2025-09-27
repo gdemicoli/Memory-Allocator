@@ -18,20 +18,47 @@ std::stack<void *> allocStack;
 std::list<Allocation *> allocatedList;
 std::list<Allocation *> freeList;
 
+size_t roundUp(size_t requested)
+{
+    if (requested <= 32)
+        return 32;
+    else if (requested <= 64)
+        return 64;
+    else if (requested <= 128)
+        return 128;
+    else if (requested <= 256)
+        return 256;
+    else if (requested <= 512)
+        return 512;
+    else
+        throw std::runtime_error("Request too large");
+}
+
+bool roundCheck(size_t requested)
+{
+    if (requested == 32 || requested == 64 || requested == 128 || requested == 256 || requested == 512)
+    {
+        return true;
+    }
+    return false;
+}
+
 void *alloc(std::size_t chunkSize)
 {
     std::cout << "alloc" << " " << chunkSize << std::endl;
     Allocation *bestFit = nullptr;
 
+    size_t roundedChunk = roundUp(chunkSize);
+
     for (Allocation *a : freeList)
     {
-        if (a->size == chunkSize)
+        if (a->size == roundedChunk)
         {
             freeList.remove(a);
             allocatedList.push_back(a);
             return a;
         }
-        if (a->size > chunkSize)
+        if (a->size > roundedChunk)
         {
             if (bestFit == nullptr || bestFit->size > a->size)
             {
@@ -42,6 +69,15 @@ void *alloc(std::size_t chunkSize)
 
     if (bestFit)
     {
+        size_t size = bestFit->size;
+        while (roundCheck(size / 2) && size / 2 > chunkSize)
+        {
+            size = size / 2;
+        }
+
+        if (size < bestFit->size)
+        {
+        }
         freeList.remove(bestFit);
         allocatedList.push_back(bestFit);
         return bestFit;
@@ -49,7 +85,7 @@ void *alloc(std::size_t chunkSize)
 
     else
     {
-        Allocation *a = new Allocation(chunkSize, sbrk(chunkSize));
+        Allocation *a = new Allocation(roundedChunk, sbrk(chunkSize));
         allocatedList.push_back(a);
         return a;
     }
@@ -88,7 +124,7 @@ int main(int argc, char *argv[])
         {
             std::size_t amount;
             iss >> amount;
-            allocStack.push(alloc(amount));
+            allocStack.push(alloc(amount)); // check if this can be used here... since it is keeping track. can move it into alloc
         }
 
         else if (command == "dealloc")
