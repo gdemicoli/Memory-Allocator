@@ -70,13 +70,16 @@ void *alloc(std::size_t chunkSize)
     if (bestFit)
     {
         size_t size = bestFit->size;
-        while (roundCheck(size / 2) && size / 2 > chunkSize)
+        while (roundCheck(size / 2) && size / 2 >= roundedChunk)
         {
             size = size / 2;
         }
 
         if (size < bestFit->size)
         {
+            size_t originalSize = bestFit->size;
+
+            // void*
         }
         freeList.remove(bestFit);
         allocatedList.push_back(bestFit);
