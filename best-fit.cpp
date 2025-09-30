@@ -6,6 +6,7 @@
 #include <list>
 #include <unistd.h>
 
+// FIX-ME: check if we should be using runtime error to throw errors in funcs
 class Allocation
 {
 public:
@@ -46,29 +47,33 @@ bool roundCheck(size_t requested)
 void *alloc(std::size_t chunkSize)
 {
     std::cout << "alloc" << " " << chunkSize << std::endl;
-    Allocation *bestFit = nullptr;
 
     size_t roundedChunk = roundUp(chunkSize);
 
-    for (Allocation *a : freeList)
+    auto bestFitIt = freeList.end();
+    Allocation *bestFit = nullptr;
+
+    for (auto i = freeList.begin(); i != freeList.end(); ++i)
     {
+        Allocation *a = *i;
+
         if (a->size == roundedChunk)
         {
-            freeList.remove(a);
-            allocatedList.push_back(a);
-            return a;
+            bestFit = a;
+            bestFitIt = i;
+            break;
         }
-        if (a->size > roundedChunk)
+
+        if (a->size > roundedChunk && (!bestFit || a->size < bestFit->size))
         {
-            if (bestFit == nullptr || bestFit->size > a->size)
-            {
-                bestFit = a;
-            }
+            bestFit = a;
+            bestFitIt = i;
         }
     }
 
     if (bestFit)
     {
+        freeList.erase(bestFitIt); // check of this connects adjacent nodes after removal
         size_t size = bestFit->size;
         while (roundCheck(size / 2) && size / 2 >= roundedChunk)
         {
@@ -77,25 +82,57 @@ void *alloc(std::size_t chunkSize)
 
         if (size < bestFit->size)
         {
-            size_t originalSize = bestFit->size;
+            Allocation *leftover = new Allocation(bestFit->size - size, (char *)bestFit->space + size);
 
-            // void*
+            freeList.push_back(leftover); // check the order of this is ok...
         }
-        freeList.remove(bestFit);
+        bestFit->size = size;
         allocatedList.push_back(bestFit);
-        return bestFit;
+        return bestFit->space;
     }
 
     else
     {
-        Allocation *a = new Allocation(roundedChunk, sbrk(chunkSize));
+        void *ptr = sbrk(roundedChunk);
+        if (ptr == (void *)-1)
+        {
+            throw std::runtime_error("sbrk failed");
+        }
+
+        Allocation *a = new Allocation(roundedChunk, ptr); // check for sbrk failure
         allocatedList.push_back(a);
-        return a;
+        return a->space;
     }
 }
+// To do: test Alloc function with inputs and start dealloc funciton...
+
 void dealloc(void *chunk)
 {
     std::cout << "dealloc" << std::endl;
+    auto memoryNodeIt = freeList.end();
+    Allocation *memoryNode = nullptr;
+
+    for (auto i = allocatedList.begin(); i != allocatedList.end(); ++i)
+    {
+        Allocation *a = *i;
+
+        if (a->space == chunk)
+        {
+            memoryNode = a;
+            memoryNodeIt = i;
+            break;
+        }
+    }
+
+    if (memoryNode == nullptr)
+    {
+        throw std::runtime_error("sbrk failed");
+    }
+
+    allocatedList.erase(memoryNodeIt);
+    freeList.push_back(memoryNode);
+
+    return;
 }
 
 int main(int argc, char *argv[])
