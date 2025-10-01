@@ -1,17 +1,6 @@
-alloc: 500
-alloc: 150
-alloc: 92
-alloc: 35
-alloc: 12
-dealloc
-dealloc
-dealloc
-dealloc
-dealloc
-alloc: 256
 alloc: 64
-alloc: 64
+alloc: 32
+alloc: 32
+alloc: 400
 dealloc
-alloc: 64
-dealloc
-alloc: 64
+alloc: 126

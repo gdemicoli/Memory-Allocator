@@ -1,0 +1,19 @@
+alloc: 80
+alloc: 22
+alloc: 477
+alloc: 419
+alloc: 361
+alloc: 304
+dealloc
+dealloc
+alloc: 73
+alloc: 469
+dealloc
+dealloc
+dealloc
+alloc: 181
+alloc: 66
+dealloc
+dealloc
+alloc: 347
+alloc: 231

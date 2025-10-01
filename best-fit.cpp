@@ -116,18 +116,20 @@ void *alloc(std::size_t chunkSize)
         auto insertPos = bestFitIt;
         ++insertPos;               // position after bestFit
         freeList.erase(bestFitIt); // check if this connects adjacent nodes after removal
+        size_t halfSize = bestFit->size;
         size_t size = bestFit->size;
-        while (roundCheck(size / 2) && size / 2 >= roundedChunk)
-        {
-            size = size / 2;
-        }
 
-        if (size < bestFit->size)
+        while (roundCheck(halfSize / 2) && halfSize / 2 >= roundedChunk)
         {
-            Allocation *leftover = new Allocation(bestFit->size - size, (char *)bestFit->space + size);
 
+            halfSize = halfSize / 2;
+
+            Allocation *leftover = new Allocation(size - halfSize, (char *)bestFit->space + halfSize);
+            size = halfSize;
             freeList.insert(insertPos, leftover); // check the order of this is ok...
+            insertPos--;
         }
+
         bestFit->size = size;
         bestFit->usedSize = chunkSize;
         allocatedList.push_back(bestFit);
