@@ -6,9 +6,12 @@ alloc: 361
 alloc: 304
 dealloc
 dealloc
+dealloc
+dealloc
+dealloc
+dealloc
 alloc: 73
 alloc: 469
-dealloc
 dealloc
 dealloc
 alloc: 181
