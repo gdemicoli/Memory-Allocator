@@ -6,7 +6,7 @@
 #include <list>
 #include <unistd.h>
 #include <iomanip>
-// 90% sure this is correct, test with same sized inputs and check that best fit is behaving as needed
+
 class Allocation
 {
 public:
@@ -90,48 +90,42 @@ void *alloc(std::size_t chunkSize)
 
     size_t roundedChunk = roundUp(chunkSize);
 
-    auto bestFitIt = freeList.end();
-    Allocation *bestFit = nullptr;
+    auto firstFitIt = freeList.end();
+    Allocation *firstFit = nullptr;
 
     for (auto i = freeList.begin(); i != freeList.end(); ++i)
     {
         Allocation *a = *i;
 
-        if (a->size == roundedChunk)
+        if (a->size >= roundedChunk)
         {
-            bestFit = a;
-            bestFitIt = i;
+            firstFit = a;
+            firstFitIt = i;
             break;
-        }
-
-        if (a->size > roundedChunk && (!bestFit || a->size < bestFit->size))
-        {
-            bestFit = a;
-            bestFitIt = i;
         }
     }
 
-    if (bestFit)
+    if (firstFit)
     {
-        auto insertPos = bestFitIt;
-        ++insertPos;               // position after bestFit
-        freeList.erase(bestFitIt); // check if this connects adjacent nodes after removal
-        size_t size = bestFit->size;
+        auto insertPos = firstFitIt;
+        ++insertPos;                // position after bestFit
+        freeList.erase(firstFitIt); // check if this connects adjacent nodes after removal
+        size_t size = firstFit->size;
         while (roundCheck(size / 2) && size / 2 >= roundedChunk)
         {
             size = size / 2;
         }
 
-        if (size < bestFit->size)
+        if (size < firstFit->size)
         {
-            Allocation *leftover = new Allocation(bestFit->size - size, (char *)bestFit->space + size);
+            Allocation *leftover = new Allocation(firstFit->size - size, (char *)firstFit->space + size);
 
             freeList.insert(insertPos, leftover); // check the order of this is ok...
         }
-        bestFit->size = size;
-        bestFit->usedSize = chunkSize;
-        allocatedList.push_back(bestFit);
-        return bestFit->space;
+        firstFit->size = size;
+        firstFit->usedSize = chunkSize;
+        allocatedList.push_back(firstFit);
+        return firstFit->space;
     }
 
     else
@@ -147,7 +141,6 @@ void *alloc(std::size_t chunkSize)
         return a->space;
     }
 }
-// To do: test Alloc function with inputs and start dealloc funciton...
 
 void dealloc(void *chunk)
 {
