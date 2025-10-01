@@ -5,6 +5,7 @@
 #include <stack>
 #include <list>
 #include <unistd.h>
+#include <iomanip>
 
 // FIX-ME: check if we should be using runtime error to throw errors in funcs
 class Allocation
@@ -12,12 +13,53 @@ class Allocation
 public:
     size_t size;
     void *space;
+    size_t usedSize;
 
-    Allocation(size_t s, void *p) : size(s), space(p) {}
+    Allocation(size_t s, void *p, size_t u = 0)
+        : size(s), space(p), usedSize(std::min(u, s)) {}
 };
+
 std::stack<void *> allocStack;
 std::list<Allocation *> allocatedList;
 std::list<Allocation *> freeList;
+
+void printLists()
+{
+    std::cout << "- Allocated Chunks -" << std::endl;
+    std::cout << std::left
+              << std::setw(20) << "Address"
+              << std::setw(15) << "Used Size"
+              << std::setw(15) << "Chunk Size" << std::endl;
+
+    std::list<Allocation *>::iterator it;
+    for (it = allocatedList.begin(); it != allocatedList.end(); ++it)
+    {
+        Allocation *a = *it;
+        std::cout << std::left
+                  << std::setw(20) << a->space
+                  << std::setw(15) << a->usedSize
+                  << std::setw(15) << a->size
+                  << std::endl;
+    }
+
+    std::cout << std::endl;
+
+    std::cout << "- Free Chunks -" << std::endl;
+    std::cout << std::left
+              << std::setw(20) << "Address"
+              << std::setw(15) << "Used Size"
+              << std::setw(15) << "Chunk Size" << std::endl;
+
+    for (it = freeList.begin(); it != freeList.end(); ++it)
+    {
+        Allocation *f = *it;
+        std::cout << std::left
+                  << std::setw(20) << f->space
+                  << std::setw(15) << f->usedSize
+                  << std::setw(15) << f->size
+                  << std::endl;
+    }
+}
 
 size_t roundUp(size_t requested)
 {
@@ -32,7 +74,7 @@ size_t roundUp(size_t requested)
     else if (requested <= 512)
         return 512;
     else
-        throw std::runtime_error("Request too large");
+        throw std::runtime_error("Error: Request too large");
 }
 
 bool roundCheck(size_t requested)
@@ -46,7 +88,6 @@ bool roundCheck(size_t requested)
 
 void *alloc(std::size_t chunkSize)
 {
-    std::cout << "alloc" << " " << chunkSize << std::endl;
 
     size_t roundedChunk = roundUp(chunkSize);
 
@@ -73,7 +114,9 @@ void *alloc(std::size_t chunkSize)
 
     if (bestFit)
     {
-        freeList.erase(bestFitIt); // check of this connects adjacent nodes after removal
+        auto insertPos = bestFitIt;
+        ++insertPos;               // position after bestFit
+        freeList.erase(bestFitIt); // check if this connects adjacent nodes after removal
         size_t size = bestFit->size;
         while (roundCheck(size / 2) && size / 2 >= roundedChunk)
         {
@@ -84,9 +127,10 @@ void *alloc(std::size_t chunkSize)
         {
             Allocation *leftover = new Allocation(bestFit->size - size, (char *)bestFit->space + size);
 
-            freeList.push_back(leftover); // check the order of this is ok...
+            freeList.insert(insertPos, leftover); // check the order of this is ok...
         }
         bestFit->size = size;
+        bestFit->usedSize = chunkSize;
         allocatedList.push_back(bestFit);
         return bestFit->space;
     }
@@ -96,10 +140,10 @@ void *alloc(std::size_t chunkSize)
         void *ptr = sbrk(roundedChunk);
         if (ptr == (void *)-1)
         {
-            throw std::runtime_error("sbrk failed");
+            throw std::runtime_error("Error: sbrk failed");
         }
 
-        Allocation *a = new Allocation(roundedChunk, ptr); // check for sbrk failure
+        Allocation *a = new Allocation(roundedChunk, ptr, chunkSize); // check for sbrk failure
         allocatedList.push_back(a);
         return a->space;
     }
@@ -108,7 +152,6 @@ void *alloc(std::size_t chunkSize)
 
 void dealloc(void *chunk)
 {
-    std::cout << "dealloc" << std::endl;
     auto memoryNodeIt = freeList.end();
     Allocation *memoryNode = nullptr;
 
@@ -126,11 +169,17 @@ void dealloc(void *chunk)
 
     if (memoryNode == nullptr)
     {
-        throw std::runtime_error("sbrk failed");
+        throw std::runtime_error("Error: Memory must be allocated before being deallocated.");
     }
 
     allocatedList.erase(memoryNodeIt);
-    freeList.push_back(memoryNode);
+    memoryNode->usedSize = 0;
+    auto insertPos = freeList.begin();
+    while (insertPos != freeList.end() && (*insertPos)->space < memoryNode->space)
+    {
+        ++insertPos;
+    }
+    freeList.insert(insertPos, memoryNode);
 
     return;
 }
@@ -159,24 +208,38 @@ int main(int argc, char *argv[])
         std::istringstream iss(line);
         std::string command;
         iss >> command;
-
-        if (command == "alloc:")
+        try
         {
-            std::size_t amount;
-            iss >> amount;
-            allocStack.push(alloc(amount)); // check if this can be used here... since it is keeping track. can move it into alloc
-        }
-
-        else if (command == "dealloc")
-        {
-            if (allocStack.size() == 0)
+            if (command == "alloc:")
             {
-                std::cerr << "Fatal Error: cannot dealocate memory that hasn't been allocated. \n";
-                return 1;
+                std::size_t amount;
+                iss >> amount;
+                allocStack.push(alloc(amount)); // check if this can be used here... since it is keeping track. can move it into alloc
             }
 
-            dealloc(allocStack.top());
-            allocStack.pop();
+            else if (command == "dealloc")
+            {
+                if (allocStack.size() == 0)
+                {
+                    std::cerr << "Fatal Error: cannot dealocate memory that hasn't been allocated. \n";
+                    return 1;
+                }
+
+                dealloc(allocStack.top());
+                allocStack.pop();
+            }
+            else
+            {
+                std::cerr << "Fatal Error: input file is incorrect \n";
+                return 1;
+            }
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << e.what() << '\n';
+            return 1;
         }
     }
+
+    printLists();
 }
