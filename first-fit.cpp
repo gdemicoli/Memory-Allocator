@@ -93,6 +93,7 @@ void *alloc(std::size_t chunkSize)
     auto firstFitIt = freeList.end();
     Allocation *firstFit = nullptr;
 
+    // Finds first viable chunk
     for (auto i = freeList.begin(); i != freeList.end(); ++i)
     {
         Allocation *a = *i;
@@ -108,11 +109,12 @@ void *alloc(std::size_t chunkSize)
     if (firstFit)
     {
         auto insertPos = firstFitIt;
-        ++insertPos;                // position after bestFit
-        freeList.erase(firstFitIt); // check if this connects adjacent nodes after removal
+        ++insertPos;
+        freeList.erase(firstFitIt);
         size_t halfSize = firstFit->size;
         size_t size = firstFit->size;
 
+        // if viable chunk is found we reduce it to the minimum required size and leave the leftover in the freeList
         while (roundCheck(halfSize / 2) && halfSize / 2 >= roundedChunk)
         {
 
@@ -120,7 +122,7 @@ void *alloc(std::size_t chunkSize)
 
             Allocation *leftover = new Allocation(size - halfSize, (char *)firstFit->space + halfSize);
             size = halfSize;
-            freeList.insert(insertPos, leftover); // check the order of this is ok...
+            freeList.insert(insertPos, leftover);
             insertPos--;
         }
 
@@ -132,13 +134,14 @@ void *alloc(std::size_t chunkSize)
 
     else
     {
+        // request memory form the OS if non meets requirements
         void *ptr = sbrk(roundedChunk);
         if (ptr == (void *)-1)
         {
             throw std::runtime_error("Error: sbrk failed");
         }
 
-        Allocation *a = new Allocation(roundedChunk, ptr, chunkSize); // check for sbrk failure
+        Allocation *a = new Allocation(roundedChunk, ptr, chunkSize);
         allocatedList.push_back(a);
         return a->space;
     }
@@ -149,6 +152,7 @@ void dealloc(void *chunk)
     auto memoryNodeIt = freeList.end();
     Allocation *memoryNode = nullptr;
 
+    // search for chunk to dealloc
     for (auto i = allocatedList.begin(); i != allocatedList.end(); ++i)
     {
         Allocation *a = *i;
@@ -166,6 +170,7 @@ void dealloc(void *chunk)
         throw std::runtime_error("Error: Memory must be allocated before being deallocated.");
     }
 
+    // insert freed chunk in a way that keeps the chunks contiguous (where free)
     allocatedList.erase(memoryNodeIt);
     memoryNode->usedSize = 0;
     auto insertPos = freeList.begin();
@@ -208,7 +213,7 @@ int main(int argc, char *argv[])
             {
                 std::size_t amount;
                 iss >> amount;
-                allocStack.push(alloc(amount)); // check if this can be used here... since it is keeping track. can move it into alloc
+                allocStack.push(alloc(amount));
             }
 
             else if (command == "dealloc")

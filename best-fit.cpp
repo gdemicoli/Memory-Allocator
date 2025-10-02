@@ -6,7 +6,7 @@
 #include <list>
 #include <unistd.h>
 #include <iomanip>
-// 90% sure this is correct, test with same sized inputs and check that best fit is behaving as needed
+
 class Allocation
 {
 public:
@@ -59,7 +59,7 @@ void printLists()
                   << std::endl;
     }
 }
-
+// Function for rounding requested chunk size up to standard piece
 size_t roundUp(size_t requested)
 {
     if (requested <= 32)
@@ -75,6 +75,7 @@ size_t roundUp(size_t requested)
     else
         throw std::runtime_error("Error: Request too large");
 }
+// Function for checking size is standard
 
 bool roundCheck(size_t requested)
 {
@@ -92,7 +93,7 @@ void *alloc(std::size_t chunkSize)
 
     auto bestFitIt = freeList.end();
     Allocation *bestFit = nullptr;
-
+    // Searches through free list for best fit
     for (auto i = freeList.begin(); i != freeList.end(); ++i)
     {
         Allocation *a = *i;
@@ -114,11 +115,12 @@ void *alloc(std::size_t chunkSize)
     if (bestFit)
     {
         auto insertPos = bestFitIt;
-        ++insertPos;               // position after bestFit
-        freeList.erase(bestFitIt); // check if this connects adjacent nodes after removal
+        ++insertPos;
+        freeList.erase(bestFitIt);
         size_t halfSize = bestFit->size;
         size_t size = bestFit->size;
 
+        // If an adequate fit is found, we split the chunk if needed
         while (roundCheck(halfSize / 2) && halfSize / 2 >= roundedChunk)
         {
 
@@ -126,7 +128,7 @@ void *alloc(std::size_t chunkSize)
 
             Allocation *leftover = new Allocation(size - halfSize, (char *)bestFit->space + halfSize);
             size = halfSize;
-            freeList.insert(insertPos, leftover); // check the order of this is ok...
+            freeList.insert(insertPos, leftover);
             insertPos--;
         }
 
@@ -135,7 +137,7 @@ void *alloc(std::size_t chunkSize)
         allocatedList.push_back(bestFit);
         return bestFit->space;
     }
-
+    // If no adequate chunk can be found we request memory from the OS
     else
     {
         void *ptr = sbrk(roundedChunk);
@@ -144,18 +146,18 @@ void *alloc(std::size_t chunkSize)
             throw std::runtime_error("Error: sbrk failed");
         }
 
-        Allocation *a = new Allocation(roundedChunk, ptr, chunkSize); // check for sbrk failure
+        Allocation *a = new Allocation(roundedChunk, ptr, chunkSize);
         allocatedList.push_back(a);
         return a->space;
     }
 }
-// To do: test Alloc function with inputs and start dealloc funciton...
 
 void dealloc(void *chunk)
 {
     auto memoryNodeIt = freeList.end();
     Allocation *memoryNode = nullptr;
 
+    // Search for chunk in list
     for (auto i = allocatedList.begin(); i != allocatedList.end(); ++i)
     {
         Allocation *a = *i;
@@ -173,6 +175,7 @@ void dealloc(void *chunk)
         throw std::runtime_error("Error: Memory must be allocated before being deallocated.");
     }
 
+    // insert freed chunk in a way that keeps the chunks contiguous (where free)
     allocatedList.erase(memoryNodeIt);
     memoryNode->usedSize = 0;
     auto insertPos = freeList.begin();
@@ -215,7 +218,7 @@ int main(int argc, char *argv[])
             {
                 std::size_t amount;
                 iss >> amount;
-                allocStack.push(alloc(amount)); // check if this can be used here... since it is keeping track. can move it into alloc
+                allocStack.push(alloc(amount));
             }
 
             else if (command == "dealloc")
