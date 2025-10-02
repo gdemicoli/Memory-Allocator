@@ -6,6 +6,7 @@
 #include <list>
 #include <unistd.h>
 #include <iomanip>
+#include <stdexcept>
 
 class Allocation
 {
@@ -74,6 +75,7 @@ size_t roundUp(size_t requested)
         return 512;
     else
         throw std::runtime_error("Error: Request too large");
+    return 0;
 }
 // Function for checking size is standard
 
@@ -144,6 +146,7 @@ void *alloc(std::size_t chunkSize)
         if (ptr == (void *)-1)
         {
             throw std::runtime_error("Error: sbrk failed");
+            return ptr;
         }
 
         Allocation *a = new Allocation(roundedChunk, ptr, chunkSize);
